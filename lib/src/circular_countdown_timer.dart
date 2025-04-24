@@ -1,4 +1,4 @@
-// lib/src/circular_timer.dart
+// lib/src/circular_countdown_timer.dart
 import 'dart:math';
 import 'package:flutter/material.dart';
 
@@ -203,6 +203,22 @@ class CircularCountdownTimerState extends State<CircularCountdownTimer> with Tic
                 ),
             ],
           ),
+
+
+          Container(
+            width: widget.size+15,
+            height: widget.size+15,
+            decoration:  ShapeDecoration(
+              shape: OvalBorder(
+                side: BorderSide(
+                  width: 4,
+                  strokeAlign: BorderSide.strokeAlignOutside,
+                  color: widget.indicatorColor,
+                ),
+              ),
+            ),
+          ),
+
         ],
       ),
     );
