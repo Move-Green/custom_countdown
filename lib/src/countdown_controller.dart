@@ -1,73 +1,40 @@
-// lib/src/countdown_controller.dart
-import 'dart:async';
+// lib/src/timer_controller.dart
 import 'package:flutter/foundation.dart';
 
 class CountdownController extends ChangeNotifier {
-  Timer? _timer;
-  int _duration = 0;
-  int _remainingTime = 0;
   bool _isRunning = false;
-  VoidCallback? _onComplete;
+  bool _isPaused = false;
+  int _initialDuration = 0;
 
-  int get remainingTime => _remainingTime;
   bool get isRunning => _isRunning;
-  int get duration => _duration;
+  bool get isPaused => _isPaused;
 
-  void initialize({
-    required int duration,
-    VoidCallback? onComplete,
-  }) {
-    _duration = duration;
-    _remainingTime = duration;
-    _onComplete = onComplete;
-    notifyListeners();
-  }
-
-  void start() {
-    if (_isRunning || _remainingTime <= 0) return;
-
-    _isRunning = true;
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_remainingTime > 0) {
-        _remainingTime--;
-        notifyListeners();
-      } else {
-        _onComplete?.call();
-        stop();
-      }
-    });
-
-    notifyListeners();
-  }
-
-  void pause() {
+  void initialize(int duration) {
+    _initialDuration = duration;
     _isRunning = false;
-    _timer?.cancel();
+    _isPaused = false;
     notifyListeners();
   }
 
-  void resume() {
-    if (!_isRunning && _remainingTime > 0) {
-      start();
+  void setRunning(bool running) {
+    _isRunning = running;
+    if (running) {
+      _isPaused = false;
     }
+    notifyListeners();
   }
 
-  void stop() {
-    _isRunning = false;
-    _timer?.cancel();
-    _timer = null;
+  void setPaused(bool paused) {
+    _isPaused = paused;
+    if (paused) {
+      _isRunning = false;
+    }
     notifyListeners();
   }
 
   void reset() {
-    stop();
-    _remainingTime = _duration;
+    _isRunning = false;
+    _isPaused = false;
     notifyListeners();
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
   }
 }
