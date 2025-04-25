@@ -158,66 +158,71 @@ class CircularCountdownTimerState extends State<CircularCountdownTimer> with Tic
       fontSize: widget.size * 0.1,
     );
 
-    return SizedBox(
-      width: widget.size,
-      height: widget.size,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // Dark background circle
-          Container(
-            width: widget.size,
-            height: widget.size,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: widget.backgroundColor,
-            ),
-          ),
-
-          // Circular progress indicator
-          SizedBox(
-            width: widget.size,
-            height: widget.size,
-            child: CustomPaint(
-              painter: CircularProgressPainter(
-                progress: 1.0 - _controller.value,
-                color: widget.indicatorColor,
-                strokeWidth: widget.strokeWidth,
-              ),
-            ),
-          ),
-
-          // Time and label
-          Column(
-            mainAxisSize: MainAxisSize.min,
+    return Stack(
+      alignment: const Alignment(0, 0),
+      children: [
+        SizedBox(
+          width: widget.size,
+          height: widget.size,
+          child: Stack(
+            alignment: Alignment.center,
             children: [
-              Text(
-                _formatTime(_remainingSeconds),
-                style: widget.timeTextStyle ?? defaultTimeStyle,
-              ),
-              const SizedBox(height: 8),
-              if (widget.label.isNotEmpty)
-                Text(
-                  widget.label,
-                  style: widget.labelTextStyle ?? defaultLabelStyle,
+              // Dark background circle
+              Container(
+                width: widget.size,
+                height: widget.size,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: widget.backgroundColor,
                 ),
+              ),
+
+              // Circular progress indicator
+              SizedBox(
+                width: widget.size,
+                height: widget.size,
+                child: CustomPaint(
+                  painter: CircularProgressPainter(
+                    progress: 1.0 - _controller.value,
+                    color: widget.indicatorColor,
+                    strokeWidth: widget.strokeWidth,
+                  ),
+                ),
+              ),
+
+              // Time and label
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _formatTime(_remainingSeconds),
+                    style: widget.timeTextStyle ?? defaultTimeStyle,
+                  ),
+                  const SizedBox(height: 8),
+                  if (widget.label.isNotEmpty)
+                    Text(
+                      widget.label,
+                      style: widget.labelTextStyle ?? defaultLabelStyle,
+                    ),
+                ],
+              ),
+
             ],
           ),
-          Container(
+        ),
+        Container(
             width: widget.size+15,
             height: widget.size+15,
             decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              border: Border.all(
-                width: 4,
-                strokeAlign: BorderSide.strokeAlignOutside,
-                color: widget.indicatorColor,
-              )
+                shape: BoxShape.circle,
+                border: Border.all(
+                  width: 5,
+                  strokeAlign: BorderSide.strokeAlignOutside,
+                  color: widget.indicatorColor,
+                )
             )
-          ),
-
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
