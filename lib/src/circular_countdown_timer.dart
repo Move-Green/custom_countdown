@@ -203,20 +203,17 @@ class CircularCountdownTimerState extends State<CircularCountdownTimer> with Tic
                 ),
             ],
           ),
-
-
           Container(
             width: widget.size+15,
             height: widget.size+15,
-            decoration:  ShapeDecoration(
-              shape: OvalBorder(
-                side: BorderSide(
-                  width: 4,
-                  strokeAlign: BorderSide.strokeAlignOutside,
-                  color: widget.indicatorColor,
-                ),
-              ),
-            ),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                width: 4,
+                strokeAlign: BorderSide.strokeAlignOutside,
+                color: widget.indicatorColor,
+              )
+            )
           ),
 
         ],
