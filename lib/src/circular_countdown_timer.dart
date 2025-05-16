@@ -194,7 +194,7 @@ class CircularCountdownTimerState extends State<CircularCountdownTimer> with Tic
               Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const SizedBox(height: 18),
+                  const SizedBox(height: 8),
                   Text(
                     _formatTime(_remainingSeconds),
                     style: widget.timeTextStyle ?? defaultTimeStyle,
