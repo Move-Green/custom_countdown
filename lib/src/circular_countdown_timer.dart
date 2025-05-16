@@ -198,7 +198,6 @@ class CircularCountdownTimerState extends State<CircularCountdownTimer> with Tic
                     _formatTime(_remainingSeconds),
                     style: widget.timeTextStyle ?? defaultTimeStyle,
                   ),
-                  const SizedBox(height: 8),
                   if (widget.label.isNotEmpty)
                     Text(
                       widget.label,
