@@ -1,5 +1,6 @@
 // lib/src/circular_countdown_timer.dart
 import 'dart:math';
+
 import 'package:flutter/material.dart';
 
 class CircularCountdownTimer extends StatefulWidget {
@@ -132,16 +133,27 @@ class CircularCountdownTimerState extends State<CircularCountdownTimer> with Tic
     });
   }
 
-  /// Format seconds as HH:MM or MM:SS
-  String _formatTime(int seconds) {
-    final hours = seconds ~/ 3600;
-    final minutes = (seconds % 3600) ~/ 60;
-    final remainingSeconds = seconds % 60;
+  /// Formats a duration (in seconds) as:
+  /// - "HH:MM:SS" if hours > 0
+  /// - "MM:SS"   if hours == 0 and minutes > 0
+  /// - "SS"      if only seconds
+  ///
+  /// // Example usages:
+  /// // formatTime(5);      // "05"
+  /// // formatTime(45);     // "45"
+  /// // formatTime(75);     // "01:15"
+  /// // formatTime(3675);   // "01:01:15"
+  String _formatTime(int totalSeconds) {
+    final hours = totalSeconds ~/ 3600;
+    final minutes = (totalSeconds % 3600) ~/ 60;
+    final seconds = totalSeconds % 60;
 
     if (hours > 0) {
-      return '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}';
+      return [hours, minutes, seconds].map((v) => v.toString().padLeft(2, '0')).join(':');
+    } else if (minutes > 0) {
+      return [minutes, seconds].map((v) => v.toString().padLeft(2, '0')).join(':');
     } else {
-      return '${minutes.toString().padLeft(2, '0')}:${remainingSeconds.toString().padLeft(2, '0')}';
+      return seconds.toString().padLeft(2, '0');
     }
   }
 
@@ -206,22 +218,19 @@ class CircularCountdownTimerState extends State<CircularCountdownTimer> with Tic
                     ),
                 ],
               ),
-
             ],
           ),
         ),
         Container(
-            width: widget.size+15,
-            height: widget.size+15,
+            width: widget.size + 15,
+            height: widget.size + 15,
             decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
                   width: 5,
                   strokeAlign: BorderSide.strokeAlignOutside,
                   color: widget.indicatorColor,
-                )
-            )
-        ),
+                ))),
       ],
     );
   }
@@ -253,8 +262,8 @@ class CircularProgressPainter extends CustomPainter {
     // Draw the arc based on progress
     canvas.drawArc(
       Rect.fromCircle(center: center, radius: radius),
-      -pi / 2,  // Start from top
-      2 * pi * progress,  // Draw based on progress
+      -pi / 2, // Start from top
+      2 * pi * progress, // Draw based on progress
       false,
       paint,
     );
@@ -262,8 +271,6 @@ class CircularProgressPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(CircularProgressPainter oldDelegate) {
-    return oldDelegate.progress != progress ||
-        oldDelegate.color != color ||
-        oldDelegate.strokeWidth != strokeWidth;
+    return oldDelegate.progress != progress || oldDelegate.color != color || oldDelegate.strokeWidth != strokeWidth;
   }
 }
