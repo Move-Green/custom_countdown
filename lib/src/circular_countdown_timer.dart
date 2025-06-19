@@ -144,6 +144,9 @@ class CircularCountdownTimerState extends State<CircularCountdownTimer> with Tic
   /// // formatTime(75);     // "01:15"
   /// // formatTime(3675);   // "01:01:15"
   String _formatTime(int totalSeconds) {
+    if(totalSeconds == 0){
+      return "00:00";
+    }
     final hours = totalSeconds ~/ 3600;
     final minutes = (totalSeconds % 3600) ~/ 60;
     final seconds = totalSeconds % 60;
