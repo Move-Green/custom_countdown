@@ -1,11 +1,15 @@
 // lib/src/circular_countdown_timer.dart
 import 'dart:math';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 
 class CircularCountdownTimer extends StatefulWidget {
-  /// Duration in seconds
-  final int duration;
+  /// Total capacity in seconds (e.g., 8 hours = 28800 seconds)
+  final int totalCapacity;
+
+  /// Current remaining time in seconds
+  final int remainingTime;
 
   /// Timer label text
   final String label;
@@ -34,9 +38,13 @@ class CircularCountdownTimer extends StatefulWidget {
   /// Whether to start automatically
   final bool autoStart;
 
+  /// Show capacity progress indicator
+  final bool showCapacityProgress;
+
   const CircularCountdownTimer({
     Key? key,
-    required this.duration,
+    required this.totalCapacity,
+    required this.remainingTime,
     this.label = '',
     this.indicatorColor = Colors.blue,
     this.backgroundColor = const Color(0xFF1E293B),
@@ -46,6 +54,7 @@ class CircularCountdownTimer extends StatefulWidget {
     this.labelTextStyle,
     this.onComplete,
     this.autoStart = false,
+    this.showCapacityProgress = true,
   }) : super(key: key);
 
   @override
@@ -55,225 +64,293 @@ class CircularCountdownTimer extends StatefulWidget {
 class CircularCountdownTimerState extends State<CircularCountdownTimer> with TickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
-  late int _remainingSeconds;
+
+  int _currentRemainingSeconds = 0;
   bool _isRunning = false;
+  Timer? _countdownTimer;
+  DateTime? _lastSyncTime;
 
   @override
   void initState() {
     super.initState();
-    _remainingSeconds = widget.duration;
+    _currentRemainingSeconds = widget.remainingTime;
 
+    // Animation controller for smooth visual updates
     _controller = AnimationController(
       vsync: this,
-      duration: Duration(seconds: widget.duration),
+      duration: const Duration(milliseconds: 500), // Smooth transition duration
     );
 
-    _animation = Tween<double>(begin: 1.0, end: 0.0).animate(_controller)
-      ..addListener(() {
-        setState(() {
-          _remainingSeconds = (widget.duration * (1.0 - _controller.value)).ceil();
-        });
-      })
-      ..addStatusListener((status) {
-        if (status == AnimationStatus.completed) {
-          setState(() {
-            _isRunning = false;
-          });
-          widget.onComplete?.call();
-        }
-      });
+    _animation = Tween<double>(begin: 0.0, end: 1.0).animate(
+        CurvedAnimation(parent: _controller, curve: Curves.easeInOut)
+    );
 
     if (widget.autoStart) {
       start();
+    }
+
+    // Set initial progress
+    _updateProgress();
+  }
+
+  @override
+  void didUpdateWidget(CircularCountdownTimer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // Sync when remaining time changes from parent
+    if (oldWidget.remainingTime != widget.remainingTime) {
+      syncToTime(widget.remainingTime);
     }
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _countdownTimer?.cancel();
     super.dispose();
+  }
+
+  /// Sync timer to specific remaining time (from server)
+  void syncToTime(int remainingSeconds) {
+    setState(() {
+      _currentRemainingSeconds = remainingSeconds.clamp(0, widget.totalCapacity);
+      _lastSyncTime = DateTime.now();
+    });
+
+    _updateProgress();
+
+    // If timer was running, continue running
+    if (_isRunning && _currentRemainingSeconds > 0) {
+      _startLocalCountdown();
+    } else if (_currentRemainingSeconds <= 0) {
+      _handleTimerComplete();
+    }
   }
 
   /// Start the timer
   void start() {
-    if (!_isRunning) {
-      _controller.forward(from: 1.0 - (_remainingSeconds / widget.duration));
+    if (!_isRunning && _currentRemainingSeconds > 0) {
       setState(() {
         _isRunning = true;
       });
+      _startLocalCountdown();
     }
   }
 
   /// Pause the timer
   void pause() {
     if (_isRunning) {
-      _controller.stop();
       setState(() {
         _isRunning = false;
       });
+      _countdownTimer?.cancel();
     }
   }
 
   /// Resume the timer
   void resume() {
-    if (!_isRunning) {
-      _controller.forward();
+    if (!_isRunning && _currentRemainingSeconds > 0) {
       setState(() {
         _isRunning = true;
       });
+      _startLocalCountdown();
     }
   }
 
-  /// Reset the timer
+  /// Reset timer to initial state
   void reset() {
-    _controller.reset();
+    _countdownTimer?.cancel();
     setState(() {
-      _remainingSeconds = widget.duration;
+      _currentRemainingSeconds = widget.remainingTime;
       _isRunning = false;
+    });
+    _updateProgress();
+  }
+
+  /// Restart timer with new duration
+  void restart({int? duration}) {
+    _countdownTimer?.cancel();
+    setState(() {
+      _currentRemainingSeconds = duration ?? widget.remainingTime;
+      _isRunning = false;
+    });
+    _updateProgress();
+    start();
+  }
+
+  /// Start local countdown between server syncs
+  void _startLocalCountdown() {
+    _countdownTimer?.cancel();
+
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_currentRemainingSeconds > 0) {
+        setState(() {
+          _currentRemainingSeconds--;
+        });
+        _updateProgress();
+      } else {
+        _handleTimerComplete();
+      }
     });
   }
 
-  /// Formats a duration (in seconds) as:
-  /// - "HH:MM:SS" if hours > 0
-  /// - "MM:SS"   if hours == 0 and minutes > 0
-  /// - "SS"      if only seconds
-  ///
-  /// // Example usages:
-  /// // formatTime(5);      // "05"
-  /// // formatTime(45);     // "45"
-  /// // formatTime(75);     // "01:15"
-  /// // formatTime(3675);   // "01:01:15"
-  String _formatTime(int totalSeconds) {
-    if (totalSeconds == 0) {
-      return "00:00";
+  /// Update visual progress indicator
+  void _updateProgress() {
+    if (widget.totalCapacity > 0) {
+      final progress = (_currentRemainingSeconds / widget.totalCapacity).clamp(0.0, 1.0);
+      _controller.animateTo(progress);
     }
+  }
+
+  /// Handle timer completion
+  void _handleTimerComplete() {
+    _countdownTimer?.cancel();
+    setState(() {
+      _isRunning = false;
+      _currentRemainingSeconds = 0;
+    });
+    widget.onComplete?.call();
+  }
+
+  /// Format time as HH:MM:SS or MM:SS
+  String _formatTime(int totalSeconds) {
+    if (totalSeconds <= 0) return "00:00";
+
     final hours = totalSeconds ~/ 3600;
     final minutes = (totalSeconds % 3600) ~/ 60;
     final seconds = totalSeconds % 60;
 
     if (hours > 0) {
-      return [hours, minutes, seconds].map((v) => v.toString().padLeft(2, '0')).join(':');
-    } else if (minutes > 0) {
-      return [minutes, seconds].map((v) => v.toString().padLeft(2, '0')).join(':');
+      return [hours, minutes, seconds]
+          .map((v) => v.toString().padLeft(2, '0'))
+          .join(':');
     } else {
-      return seconds.toString().padLeft(2, '0');
+      return [minutes, seconds]
+          .map((v) => v.toString().padLeft(2, '0'))
+          .join(':');
     }
+  }
+
+  /// Get capacity percentage (used time)
+  double get capacityPercentage {
+    if (widget.totalCapacity <= 0) return 0.0;
+    final usedTime = widget.totalCapacity - _currentRemainingSeconds;
+    return (usedTime / widget.totalCapacity).clamp(0.0, 1.0);
   }
 
   @override
   Widget build(BuildContext context) {
-    final defaultTimeStyle = TextStyle(
-      color: Colors.white,
-      fontSize: widget.size * 0.22,
+    final defaultTimeTextStyle = TextStyle(
+      fontSize: 24.0,
       fontWeight: FontWeight.bold,
-    );
-
-    final defaultLabelStyle = TextStyle(
       color: Colors.white,
-      fontSize: widget.size * 0.1,
     );
 
-    return Stack(
-      alignment: const Alignment(0, 0),
-      children: [
-        SizedBox(
-          width: widget.size,
-          height: widget.size,
-          child: Stack(
-            alignment: Alignment.center,
+    final defaultLabelTextStyle = TextStyle(
+      fontSize: 16.0,
+      color: Colors.white70,
+    );
+
+    return SizedBox(
+      width: widget.size,
+      height: widget.size,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Background circle
+          SizedBox(
+            width: widget.size,
+            height: widget.size,
+            child: CircularProgressIndicator(
+              value: 1.0,
+              strokeWidth: widget.strokeWidth,
+              backgroundColor: widget.backgroundColor,
+              valueColor: AlwaysStoppedAnimation<Color>(widget.backgroundColor),
+            ),
+          ),
+
+          // Capacity progress (total used time)
+          if (widget.showCapacityProgress)
+            SizedBox(
+              width: widget.size,
+              height: widget.size,
+              child: CircularProgressIndicator(
+                value: capacityPercentage,
+                strokeWidth: widget.strokeWidth,
+                backgroundColor: Colors.transparent,
+                valueColor: AlwaysStoppedAnimation<Color>(
+                    widget.indicatorColor.withOpacity(0.3)
+                ),
+              ),
+            ),
+
+          // Remaining time indicator
+          AnimatedBuilder(
+            animation: _animation,
+            builder: (context, child) {
+              return SizedBox(
+                width: widget.size,
+                height: widget.size,
+                child: CircularProgressIndicator(
+                  value: _animation.value,
+                  strokeWidth: widget.strokeWidth / 2,
+                  backgroundColor: Colors.transparent,
+                  valueColor: AlwaysStoppedAnimation<Color>(widget.indicatorColor),
+                ),
+              );
+            },
+          ),
+
+          // Center content
+          Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              // Dark background circle
-              Container(
-                width: widget.size,
-                height: widget.size,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: widget.backgroundColor,
-                ),
+              // Time display
+              Text(
+                _formatTime(_currentRemainingSeconds),
+                style: widget.timeTextStyle ?? defaultTimeTextStyle,
               ),
 
-              // Circular progress indicator
-              SizedBox(
-                width: widget.size,
-                height: widget.size,
-                child: CustomPaint(
-                  painter: CircularProgressPainter(
-                    progress: 1.0 - _controller.value,
-                    color: widget.indicatorColor,
-                    strokeWidth: widget.strokeWidth,
+              // Label
+              if (widget.label.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  widget.label,
+                  style: widget.labelTextStyle ?? defaultLabelTextStyle,
+                ),
+              ],
+
+              // Capacity info (optional)
+              if (widget.showCapacityProgress) ...[
+                const SizedBox(height: 2),
+                Text(
+                  '${(capacityPercentage * 100).toInt()}% used',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.white54,
                   ),
                 ),
-              ),
-
-              // Time and label
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const SizedBox(height: 8),
-                  Text(
-                    _formatTime(_remainingSeconds),
-                    style: widget.timeTextStyle ?? defaultTimeStyle,
-                  ),
-                  if (widget.label.isNotEmpty)
-                    Text(
-                      widget.label,
-                      style: widget.labelTextStyle ?? defaultLabelStyle,
-                    ),
-                ],
-              ),
+              ],
             ],
           ),
-        ),
-        Container(
-            width: widget.size + 15,
-            height: widget.size + 15,
-            decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  width: 5,
-                  strokeAlign: BorderSide.strokeAlignOutside,
-                  color: widget.indicatorColor,
-                ))),
-      ],
+
+          // Sync indicator
+          if (_lastSyncTime != null &&
+              DateTime.now().difference(_lastSyncTime!).inSeconds < 3)
+            Positioned(
+              top: 8,
+              right: 8,
+              child: Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: Colors.green,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+        ],
+      ),
     );
-  }
-}
-
-class CircularProgressPainter extends CustomPainter {
-  final double progress;
-  final Color color;
-  final double strokeWidth;
-
-  CircularProgressPainter({
-    required this.progress,
-    required this.color,
-    required this.strokeWidth,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = (size.width - strokeWidth) / 2;
-
-    // Paint for the progress arc
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = strokeWidth
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    // Draw the arc based on progress
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: radius),
-      -pi / 2, // Start from top
-      2 * pi * progress, // Draw based on progress
-      false,
-      paint,
-    );
-  }
-
-  @override
-  bool shouldRepaint(CircularProgressPainter oldDelegate) {
-    return oldDelegate.progress != progress || oldDelegate.color != color || oldDelegate.strokeWidth != strokeWidth;
   }
 }
